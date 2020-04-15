@@ -74,8 +74,9 @@ const buildMap = (dataset) => {
     .attr('class', 'd3-tip')
     .attr('id', 'tooltip')
     .html(d => {
-      tooltip.attr('data-value', d.data.value);
-      return `Name: ${d.data.name} <br> Category: ${d.data.category} <br> Value: ${d.data.value}`;
+      const {name, value, category} = d.data;
+      tooltip.attr('data-value', value);
+      return `Name: ${name} <br> Category: ${category} <br> Value: ${value}`;
     })
     .direction('n')
     .offset([-10, 0]);
@@ -84,16 +85,19 @@ const buildMap = (dataset) => {
 
   const treemap = d3.treemap().size([width, height]);
 
+  // Constructs a root node from the specified hierarchical data.
   const root = d3.hierarchy(dataset, (d) => d.children)
-    .eachBefore( d =>
-      d.data.id = (d.parent ? d.parent.data.id + "." : "") + d.data.name)
+    .eachBefore( d => d.data.id = (d.parent ? d.parent.data.id + "." : "") + d.data.name)
+    // Evaluates the specified value function for this node and each descendant
     .sum(d => d.value)
+    // Sorts the children of this node
     .sort((a, b) => b.height - a.height || b.value - a.value);
 
   const tree = treemap(root);
 
   const leaf = graph
     .selectAll("g")
+    // Returns the array of leaf nodes in traversal order; leaves are nodes with no children.
     .data(tree.leaves())
     .enter()
     .append("g")
@@ -122,41 +126,46 @@ const buildMap = (dataset) => {
     .attr("y", (d,i) => 13 + i * 10)
     .text( d => d);
 
-  // // Legend
-  // const blockSize = 30;
-  //
-  // // create the legend
-  // const legend = grath
-  //   .append('g')
-  //   .attr('id', 'legend')
-  //   .attr('transform', 'translate(' + (width + margin.right - 130)/2 + ',' + 10 + ')');
-  //
-  // // create the rect colored
-  // legend
-  //   .selectAll('rect')
-  //   .data(colorScale.domain())
-  //   .enter()
-  //   .append('rect')
-  //   .attr('width', blockSize)
-  //   .attr('height', blockSize/2)
-  //   .attr('x', (d, i) => i * blockSize)
-  //   .attr('y', 0)
-  //   .style('fill', colorScale);
-  //
-  // // create the ticks
-  // const legendX = d3.scaleLinear()
-  //   .domain([min, max])
-  //   .range([0, numOfColors * blockSize]);
-  //
-  // const legendXAxis = d3.axisBottom(legendX)
-  //   .tickSize(blockSize/2 + 5)
-  //   .tickFormat(d =>  Math.round(d) + '%' )
-  //   .tickValues(colorScale.domain());
-  //
-  // legend.call(legendXAxis)
-  //   // remove the top axis bar path
-  //   .select(".domain")
-  //   .remove();
+  // create the legend
+  const legend = graph
+    .append('g')
+    .attr('id', 'legend')
+    .attr('transform', 'translate(' + 0 + ',' + height + ')');
+
+  let categories = root.leaves().map(node => node.data.category);
+  categories = [...new Set(categories)];
+
+  const legendWidth = 500;
+  const LEGEND_OFFSET = 10;
+  const LEGEND_RECT_SIZE = 15;
+  const LEGEND_H_SPACING = 150;
+  const LEGEND_V_SPACING = 10;
+  const LEGEND_TEXT_X_OFFSET = 3;
+  const LEGEND_TEXT_Y_OFFSET = -2;
+  const legendElemsPerRow = Math.floor(legendWidth/LEGEND_H_SPACING);
+
+  // create the rect colored
+  const legendElem = legend
+    .selectAll('g')
+    .attr("transform", "translate(60," + LEGEND_OFFSET + ")")
+    .data(categories)
+    .enter()
+    .append('g')
+    .attr("transform", (d, i) => 'translate(' +
+      ((i%legendElemsPerRow)*LEGEND_H_SPACING) + ',' +
+      ((Math.floor(i/legendElemsPerRow))*LEGEND_RECT_SIZE + (LEGEND_V_SPACING*(Math.floor(i/legendElemsPerRow)))) + ')'
+    );
+
+  legendElem.append('rect')
+    .attr('width', LEGEND_RECT_SIZE)
+    .attr('height', LEGEND_RECT_SIZE)
+    .attr('class','legend-item')
+    .style('fill', color);
+
+  legendElem.append("text")
+    .attr('x', LEGEND_RECT_SIZE + LEGEND_TEXT_X_OFFSET)
+    .attr('y', LEGEND_RECT_SIZE + LEGEND_TEXT_Y_OFFSET)
+    .text(d => d);
 };
 
 d3.json(DATASET.FILE_PATH, (error, dataset) => !error && buildMap(dataset));
